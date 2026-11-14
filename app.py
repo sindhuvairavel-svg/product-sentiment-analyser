@@ -1,612 +1,194 @@
+import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
-from scraper import scrape_reviews
-from sentiment import analyze_sentiment
-from database import create_database, save_review
+from textblob import TextBlob
 
-
-# =========================================================
-# PAGE CONFIGURATION
-# =========================================================
-
+# Page Config
 st.set_page_config(
-    page_title="Product Sentiment Analyzer",
-    page_icon="📊",
-    layout="wide"
+    page_title="Product Sentiment Analyser", page_icon="📊", layout="wide"
 )
 
-
-# =========================================================
-# CUSTOM CSS
-# =========================================================
-
-st.markdown("""
-<style>
-
-.stApp {
-    background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 50%, #ecfeff 100%);
-}
-
-/* Main container */
-.block-container {
-    padding-top: 2rem;
-    padding-bottom: 3rem;
-    max-width: 1400px;
-}
-
-/* Main title */
-.main-title {
-    text-align: center;
-    font-size: 42px;
-    font-weight: 800;
-    color: #312e81;
-    margin-bottom: 5px;
-}
-
-.subtitle {
-    text-align: center;
-    font-size: 17px;
-    color: #64748b;
-    margin-bottom: 30px;
-}
-
-
-/* Dashboard cards */
-
-.card {
-    padding: 22px;
-    border-radius: 18px;
-    min-height: 135px;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
-    text-align: center;
-    margin-bottom: 20px;
-}
-
-.total-card {
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
-    color: white;
-}
-
-.positive-card {
-    background: linear-gradient(135deg, #059669, #10b981);
-    color: white;
-}
-
-.neutral-card {
-    background: linear-gradient(135deg, #d97706, #f59e0b);
-    color: white;
-}
-
-.negative-card {
-    background: linear-gradient(135deg, #dc2626, #f43f5e);
-    color: white;
-}
-
-.card-icon {
-    font-size: 30px;
-}
-
-.card-title {
-    font-size: 16px;
-    margin-top: 5px;
-}
-
-.card-value {
-    font-size: 34px;
-    font-weight: 800;
-    margin-top: 5px;
-}
-
-
-/* Review cards */
-
-.review-card {
-    background: white;
-    padding: 18px;
-    margin: 12px 0;
-    border-radius: 15px;
-    box-shadow: 0 5px 18px rgba(0,0,0,0.07);
-}
-
-.positive-review {
-    border-left: 6px solid #10b981;
-}
-
-.neutral-review {
-    border-left: 6px solid #f59e0b;
-}
-
-.negative-review {
-    border-left: 6px solid #ef4444;
-}
-
-
-/* Section heading */
-
-.section-title {
-    color: #312e81;
-    font-size: 25px;
-    font-weight: 750;
-    margin-top: 15px;
-}
-
-
-/* Welcome boxes */
-
-.welcome-box {
-    background: white;
-    padding: 25px;
-    border-radius: 18px;
-    text-align: center;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.07);
-    min-height: 180px;
-}
-
-
-/* Footer */
-
-.footer {
-    text-align: center;
-    color: #64748b;
-    margin-top: 40px;
-    padding: 20px;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-
-# =========================================================
-# DATABASE
-# =========================================================
-
-create_database()
-
-
-# =========================================================
-# HEADER
-# =========================================================
-
+# Custom Styling (Black & Gold Theme)
 st.markdown(
-    '<div class="main-title">📊 Product Sentiment Analyzer</div>',
-    unsafe_allow_html=True
+    """
+    <style>
+    .main {
+        background-color: #0e1117;
+        color: #f0f2f6;
+    }
+    .stTextInput input, .stTextArea textarea {
+        background-color: #1a1c23;
+        color: #ffd700;
+        border: 1px solid #ffd700;
+    }
+    .stButton button {
+        background-color: #ffd700;
+        color: #0e1117;
+        font-weight: bold;
+        border-radius: 5px;
+    }
+    .stButton button:hover {
+        background-color: #ffcc00;
+        color: #000000;
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
 )
 
+st.title("✨ 3D Product Sentiment Analyser Dashboard")
 st.markdown(
-    '<div class="subtitle">'
-    'AI-Powered Product Review & Sentiment Analysis Dashboard'
-    '</div>',
-    unsafe_allow_html=True
+    "Analyze product reviews interactively with 3D charts, metrics, and deep insights."
 )
 
+# 3-Column Layout for Controls / Inputs
+col1, col2, col3 = st.columns([1, 1, 1])
 
-# =========================================================
-# SIDEBAR
-# =========================================================
-
-with st.sidebar:
-
-    st.markdown("## ⚙️ Analysis Panel")
-
-    st.markdown("---")
-
-    product = st.text_input(
-        "🛍️ Enter Product Name",
-        placeholder="Example: iPhone"
+with col1:
+    st.subheader("📝 Input Section")
+    product_name = st.text_input("Product Name", "Smart Headphones")
+    review_input = st.text_area(
+        "Enter Reviews (One per line)",
+        "Amazing sound quality and great battery life!\nTerrible build quality, broke in two days.\nAverage product, nothing special.\nSuper comfortable and very stylish.\nWorst customer service ever experienced.",
     )
 
-    analyze_button = st.button(
-        "🔍 Analyze Reviews",
-        use_container_width=True
+with col2:
+    st.subheader("⚙️ Settings & Filters")
+    sentiment_filter = st.selectbox(
+        "Filter Sentiment View", ["All", "Positive", "Negative", "Neutral"]
     )
+    show_3d = st.checkbox("Enable 3D Visual Effects", value=True)
 
-    st.markdown("---")
+with col3:
+    st.subheader("💡 Quick Stats")
+    reviews_list = [r.strip() for r in review_input.split("\n") if r.strip()]
+    total_reviews = len(reviews_list)
+    st.metric(label="Total Reviews Analyzed", value=total_reviews)
 
-    st.markdown("### 📌 How it works")
+if reviews_list:
+    # Process sentiments
+    data = []
+    for i, review in enumerate(reviews_list):
+        analysis = TextBlob(review)
+        polarity = analysis.sentiment.polarity
+        if polarity > 0.1:
+            sentiment = "Positive"
+        elif polarity < -0.1:
+            sentiment = "Negative"
+        else:
+            sentiment = "Neutral"
+        data.append(
+            {
+                "ID": i + 1,
+                "Review": review,
+                "Polarity": polarity,
+                "Subjectivity": analysis.sentiment.subjectivity,
+                "Sentiment": sentiment,
+            }
+        )
 
-    st.write("1️⃣ Enter product name")
-    st.write("2️⃣ Collect reviews")
-    st.write("3️⃣ Analyze sentiment")
-    st.write("4️⃣ Generate dashboard")
-
-    st.markdown("---")
-
-    st.info(
-        "The system classifies reviews into "
-        "Positive, Neutral and Negative sentiments."
-    )
-
-
-# =========================================================
-# ANALYSIS
-# =========================================================
-
-if analyze_button:
-
-    if product.strip() == "":
-
-        st.warning("⚠️ Please enter a product name.")
-
+    # Filter data based on selection
+    if sentiment_filter != "All":
+        filtered_data = [d for d in data if d["Sentiment"] == sentiment_filter]
     else:
+        filtered_data = data
 
-        with st.spinner("🔄 Analyzing product reviews..."):
+    st.markdown("---")
 
-            reviews = scrape_reviews(product)
+    # Metrics Row
+    pos_count = sum(1 for d in data if d["Sentiment"] == "Positive")
+    neg_count = sum(1 for d in data if d["Sentiment"] == "Negative")
+    neu_count = sum(1 for d in data if d["Sentiment"] == "Neutral")
 
-            results = []
+    m1, m2, m3 = st.columns(3)
+    m1.metric("🟢 Positive Reviews", pos_count)
+    m2.metric("🔴 Negative Reviews", neg_count)
+    m3.metric("⚪ Neutral Reviews", neu_count)
 
-            for review in reviews:
+    st.markdown("---")
 
-                sentiment, polarity = analyze_sentiment(review)
+    # Section for 3D and Advanced Charts
+    chart_col1, chart_col2 = st.columns(2)
 
-                save_review(
-                    product,
-                    review,
-                    sentiment,
-                    polarity
-                )
-
-                results.append({
-                    "review": review,
-                    "sentiment": sentiment,
-                    "polarity": polarity
-                })
-
-
-        # =================================================
-        # CALCULATE COUNTS
-        # =================================================
-
-        total = len(results)
-
-        positive = sum(
-            1 for item in results
-            if item["sentiment"] == "Positive"
-        )
-
-        neutral = sum(
-            1 for item in results
-            if item["sentiment"] == "Neutral"
-        )
-
-        negative = sum(
-            1 for item in results
-            if item["sentiment"] == "Negative"
-        )
-
-
-        # =================================================
-        # PRODUCT TITLE
-        # =================================================
-
-        st.markdown(
-            f"""
-            <div class="section-title">
-                🛍️ Analysis Results: {product}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-        st.write("")
-
-
-        # =================================================
-        # DASHBOARD CARDS
-        # =================================================
-
-        col1, col2, col3, col4 = st.columns(4)
-
-
-        with col1:
-
-            st.markdown(
-                f"""
-                <div class="card total-card">
-                    <div class="card-icon">📝</div>
-                    <div class="card-title">Total Reviews</div>
-                    <div class="card-value">{total}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
+    with chart_col1:
+        st.subheader("🌐 3D Sentiment Scatter Plot")
+        if show_3d and data:
+            # 3D Scatter Plot using Plotly (X: Review ID, Y: Polarity, Z: Subjectivity)
+            fig_3d = px.scatter_3d(
+                data,
+                x="ID",
+                y="Polarity",
+                z="Subjectivity",
+                color="Sentiment",
+                text="Review",
+                color_discrete_map={
+                    "Positive": "#00CC96",
+                    "Negative": "#EF553B",
+                    "Neutral": "#FFA15A",
+                },
+                title="3D Review Space (Polarity vs Subjectivity)",
             )
-
-
-        with col2:
-
-            st.markdown(
-                f"""
-                <div class="card positive-card">
-                    <div class="card-icon">😊</div>
-                    <div class="card-title">Positive Reviews</div>
-                    <div class="card-value">{positive}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
+            fig_3d.update_layout(
+                scene=dict(
+                    xaxis_title="Review ID",
+                    yaxis_title="Polarity (-1 to 1)",
+                    zaxis_title="Subjectivity (0 to 1)",
+                ),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#f0f2f6"),
             )
+            st.plotly_chart(fig_3d, use_container_width=True)
+        else:
+            st.info("Enable 3D view to see the 3D scatter plot.")
 
-
-        with col3:
-
-            st.markdown(
-                f"""
-                <div class="card neutral-card">
-                    <div class="card-icon">😐</div>
-                    <div class="card-title">Neutral Reviews</div>
-                    <div class="card-value">{neutral}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-
-        with col4:
-
-            st.markdown(
-                f"""
-                <div class="card negative-card">
-                    <div class="card-icon">😞</div>
-                    <div class="card-title">Negative Reviews</div>
-                    <div class="card-value">{negative}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-
-        # =================================================
-        # SENTIMENT DISTRIBUTION
-        # =================================================
-
-        st.markdown(
-            '<div class="section-title">📊 Sentiment Distribution</div>',
-            unsafe_allow_html=True
-        )
-
-        st.write("")
-
-
-        chart_data = {
-            "Positive": positive,
-            "Neutral": neutral,
-            "Negative": negative
+    with chart_col2:
+        st.subheader("📊 Sentiment Distribution & Gauge")
+        # Sentiment distribution bar chart
+        sentiment_counts = {
+            "Positive": pos_count,
+            "Negative": neg_count,
+            "Neutral": neu_count,
         }
-
-        st.bar_chart(chart_data)
-
-
-        # =================================================
-        # PERCENTAGE
-        # =================================================
-
-        if total > 0:
-
-            positive_percent = (positive / total) * 100
-            neutral_percent = (neutral / total) * 100
-            negative_percent = (negative / total) * 100
-
-        else:
-
-            positive_percent = 0
-            neutral_percent = 0
-            negative_percent = 0
-
-
-        st.markdown(
-            '<div class="section-title">📈 Sentiment Percentage</div>',
-            unsafe_allow_html=True
+        fig_bar = px.bar(
+            x=list(sentiment_counts.keys()),
+            y=list(sentiment_counts.values()),
+            color=list(sentiment_counts.keys()),
+            color_discrete_map={
+                "Positive": "#00CC96",
+                "Negative": "#EF553B",
+                "Neutral": "#FFA15A",
+            },
+            labels={"x": "Sentiment", "y": "Count"},
+            title="Overall Sentiment Breakdown",
         )
-
-        p1, p2, p3 = st.columns(3)
-
-
-        with p1:
-
-            st.metric(
-                "😊 Positive",
-                f"{positive_percent:.1f}%"
-            )
-
-
-        with p2:
-
-            st.metric(
-                "😐 Neutral",
-                f"{neutral_percent:.1f}%"
-            )
-
-
-        with p3:
-
-            st.metric(
-                "😞 Negative",
-                f"{negative_percent:.1f}%"
-            )
-
-
-        # =================================================
-        # OVERALL SENTIMENT
-        # =================================================
-
-        st.markdown(
-            '<div class="section-title">🎯 Overall Sentiment</div>',
-            unsafe_allow_html=True
+        fig_bar.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#f0f2f6"),
         )
+        st.plotly_chart(fig_bar, use_container_width=True)
 
+    st.markdown("---")
 
-        if positive > negative and positive > neutral:
+    # Additional Advanced Insights Section
+    st.subheader("📈 Trend & Customer Insights Summary")
+    ic1, ic2 = st.columns(2)
 
+    with ic1:
+        st.markdown("### 🏆 Key Highlights")
+        if pos_count >= neg_count:
             st.success(
-                "😊 Overall Sentiment: POSITIVE"
+                "The product leans largely **Positive**, indicating good customer satisfaction."
             )
-
-        elif negative > positive and negative > neutral:
-
-            st.error(
-                "😞 Overall Sentiment: NEGATIVE"
-            )
-
         else:
-
             st.warning(
-                "😐 Overall Sentiment: NEUTRAL"
+                "The product has notable **Negative** feedback that requires attention."
             )
 
-
-        # =================================================
-        # REVIEW DETAILS
-        # =================================================
-
-        st.markdown(
-            '<div class="section-title">📝 Review Details</div>',
-            unsafe_allow_html=True
-        )
-
-
-        for index, item in enumerate(results, start=1):
-
-            sentiment = item["sentiment"]
-
-            if sentiment == "Positive":
-
-                icon = "😊"
-                css_class = "positive-review"
-
-            elif sentiment == "Negative":
-
-                icon = "😞"
-                css_class = "negative-review"
-
-            else:
-
-                icon = "😐"
-                css_class = "neutral-review"
-
-
-            st.markdown(
-                f"""
-                <div class="review-card {css_class}">
-
-                    <h4>
-                        {icon} Review {index}
-                    </h4>
-
-                    <p>
-                        {item["review"]}
-                    </p>
-
-                    <b>Sentiment:</b>
-                    {sentiment}
-
-                    &nbsp;&nbsp;&nbsp;
-
-                    <b>Polarity:</b>
-                    {item["polarity"]:.2f}
-
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-
-        # =================================================
-        # SUCCESS MESSAGE
-        # =================================================
-
-        st.success(
-            "✅ Product review analysis completed successfully!"
-        )
-
-
-# =========================================================
-# WELCOME PAGE
-# =========================================================
+    with ic2:
+        st.markdown("### 📋 Filtered Reviews Table")
+        st.dataframe(filtered_data, use_container_width=True)
 
 else:
-
-    st.markdown("---")
-
-    st.markdown(
-        '<div class="section-title">🚀 Welcome</div>',
-        unsafe_allow_html=True
-    )
-
-    st.write(
-        "Analyze product reviews and understand customer opinions "
-        "using sentiment analysis."
-    )
-
-
-    col1, col2, col3 = st.columns(3)
-
-
-    with col1:
-
-        st.markdown(
-            """
-            <div class="welcome-box">
-
-                <h2>🔍</h2>
-
-                <h3>Review Analysis</h3>
-
-                <p>
-                Analyze product reviews automatically
-                and extract useful information.
-                </p>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-
-    with col2:
-
-        st.markdown(
-            """
-            <div class="welcome-box">
-
-                <h2>🤖</h2>
-
-                <h3>AI Sentiment</h3>
-
-                <p>
-                Identify Positive, Neutral and
-                Negative customer opinions.
-                </p>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-
-    with col3:
-
-        st.markdown(
-            """
-            <div class="welcome-box">
-
-                <h2>📊</h2>
-
-                <h3>Visual Dashboard</h3>
-
-                <p>
-                View sentiment statistics and
-                review insights clearly.
-                </p>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-
-    st.markdown(
-        """
-        <div class="footer">
-            📊 Product Sentiment Analyzer | AI-Based Review Analysis
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.warning("Please enter some reviews to analyze.")
